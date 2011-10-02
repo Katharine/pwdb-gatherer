@@ -1,0 +1,6 @@
+configs.pck/configs/coord_data.txt
+configs.pck/configs/item_color.txt
+configs.pck/configs/item_ext_desc.txt
+configs.pck/configs/item_ext_prop.txt
+configs.pck/configs/skillstr.txt
+data/elements.data
