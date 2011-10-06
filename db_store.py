@@ -784,5 +784,179 @@ def store_eggs(db, p, d, co):
         if egg.skill_4:
             c.execute(skill_query, (egg.id, egg.skill_4, egg.level_4))
 
+def store_npcs(db, p):
+    c = db.cursor()
+    for npc in p.npcs:
+        c.execute("""INSERT INTO npcs (id, name, type, killable, model, mob, introduction)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)""", (
+                    npc.id,
+                    npc.name,
+                    npc.type,
+                    npc.killable,
+                    npc.models,
+                    npc.attached_dummy_monster,
+                    npc.introduction
+                ))
+        query = "INSERT INTO npc_services (npc, service, type) VALUES ";
+        values = []
+        if npc.talk_service:
+            values.append((npc.talk_service, 'talk'))
+        if npc.sell_service:
+            values.append((npc.sell_service, 'sell'))
+        if npc.buy_service:
+            values.append((npc.buy_service, 'buy'))
+        if npc.repair_service:
+            values.append((npc.repair_service, 'repair'))
+        if npc.imbue_service:
+            values.append((npc.imbue_service, 'imbue'))
+        if npc.purge_service:
+            values.append((npc.purge_service, 'purge'))
+        if npc.start_quest_service:
+            values.append((npc.start_quest_service, 'start_quest'))
+        if npc.end_quest_service:
+            values.append((npc.end_quest_service, 'end_quest'))
+        if npc.special_quest:
+            values.append((npc.special_quest, 'special_quest'))
+        if npc.healing_service:
+            values.append((npc.healing_service, 'healing'))
+        if npc.teleport_service:
+            values.append((npc.teleport_service, 'teleport'))
+        if npc.safe_service:
+            values.append((npc.safe_service, 'bank'))
+        if npc.crafting_service:
+            values.append((npc.crafting_service, 'crafting'))
+        if npc.decompose_service:
+            values.append((npc.decompose_service, 'decompose'))
+        if npc.identify_service:
+            values.append((npc.identify_service, 'identify'))
+        if npc.build_turret_service:
+            values.append((npc.build_turret_service, 'turret'))
+        if npc.stat_reset_service:
+            values.append((npc.stat_reset_service, 'reset'))
+        if npc.pet_rename_service:
+            values.append((npc.pet_rename_service, 'pet_rename'))
+        if npc.pet_skill_learn_service:
+            values.append((npc.pet_skill_learn_service, 'pet_learn'))
+        if npc.pet_skill_forget_service:
+            values.append((npc.pet_skill_forget_service, 'pet_forget'))
+        if npc.bind_service:
+            values.append((npc.bind_service, 'bind'))
+        if npc.destruction_service:
+            values.append((npc.destruction_service, 'destroy'))
+        if npc.cancel_destruction_service:
+            values.append((npc.cancel_destruction_service, 'undestroy'))
+        if npc.genie_skill_service:
+            values.append((npc.genie_skill_service, 'genie'))
+        if len(values) > 0:
+            query += ', '.join(['(%s, %s, %s)'] * len(values))
+            query_values = []
+            for value in values:
+                query_values.extend((npc.id, value[0], value[1]))
+            c.execute(query, query_values)
+    c.close()
+
+def store_service_sell(db, p):
+    c = db.cursor()
+
+    def store_items(c, query, values):
+        if len(values) == 0:
+            return
+        c.execute(query + ', '.join(['(%s, %s, %s, %s)'] * (len(values) / 4)), values)
+
+    def store_tab(c, sell, name, item_range):
+        label_query = "INSERT INTO npc_service_sell_tabs (service, name) VALUES (%s, %s)"
+        item_query = "INSERT INTO npc_service_sell_items (service, item, contribution, tab) VALUES"
+        if name:
+            c.execute(label_query, (sell.id, name))
+            tab_id = c.lastrowid
+            values = []
+            for x in item_range:
+                if sell[x]:
+                    values.extend((sell.id, sell[x], sell[x+1], tab_id))
+            store_items(c, item_query, values)
+    for sell in p.npc_sell_service:
+        c.execute("INSERT INTO npc_service_sell (id, name) VALUES (%s, %s)", (
+            sell.id, sell.name
+        ))
+        tabs = {}
+        store_tab(c, sell, sell.tab_1_label, xrange(4, 68, 2))
+        store_tab(c, sell, sell.tab_2_label, xrange(70, 134, 2))
+        store_tab(c, sell, sell.tab_3_label, xrange(136, 200, 2))
+        store_tab(c, sell, sell.tab_4_label, xrange(202, 266, 2))
+        store_tab(c, sell, sell.tab_5_label, xrange(268, 332, 2))
+        store_tab(c, sell, sell.tab_6_label, xrange(334, 398, 2))
+        store_tab(c, sell, sell.tab_7_label, xrange(400, 464, 2))
+        store_tab(c, sell, sell.tab_8_label, xrange(466, 530, 2))
+    c.close()
+
+def store_service_skills(db, p):
+    c = db.cursor()
+    
+    skill_query = "INSERT INTO npc_service_skill_skills (service, skill) VALUES "
+    for service in p.npc_skill_service:
+        c.execute("INSERT INTO npc_service_skill (id, name) VALUES (%s, %s)", (service.id, service.name))
+        values = [x for x in service[2:] if x != 0]
+        if len(values) > 0:
+            c.execute(skill_query + ', '.join(['(%s, %%s)' % service.id] * len(values)), values)
+    
+    c.close()
+
+def store_service_crafting(db, p):
+    c = db.cursor()
+
+    def store_items(c, query, values):
+        if len(values) == 0:
+            return
+        c.execute(query + ', '.join(['(%s, %s, %s)'] * (len(values) / 3)), values)
+
+    def store_tab(c, craft, name, item_range):
+        label_query = "INSERT INTO npc_service_crafting_tabs (service, name) VALUES (%s, %s)"
+        item_query = "INSERT INTO npc_service_crafting_recipes (service, recipe, tab) VALUES "
+        if name:
+            c.execute(label_query, (craft.id, name))
+            tab_id = c.lastrowid
+            values = []
+            for x in item_range:
+                if craft[x]:
+                    values.extend((craft.id, craft[x], tab_id))
+            store_items(c, item_query, values)
+    for craft in p.npc_crafting_service:
+        c.execute("INSERT INTO npc_service_crafting (id, name, skill, dragdrop) VALUES (%s, %s, %s, %s)", (
+            craft.id, craft.name, craft.skill_required, craft.specific_items
+        ))
+        tabs = {}
+        store_tab(c, craft, craft.tab_1_label, xrange(5, 37))
+        store_tab(c, craft, craft.tab_2_label, xrange(38, 70))
+        store_tab(c, craft, craft.tab_3_label, xrange(71, 103))
+        store_tab(c, craft, craft.tab_4_label, xrange(104, 136))
+        store_tab(c, craft, craft.tab_5_label, xrange(137, 169))
+        store_tab(c, craft, craft.tab_6_label, xrange(170, 202))
+        store_tab(c, craft, craft.tab_7_label, xrange(203, 235))
+        store_tab(c, craft, craft.tab_8_label, xrange(236, 268))
+    c.close()
+
+def store_service_end_quests(db, p):
+    c = db.cursor()
+
+    skill_query = "INSERT INTO npc_service_end_quest_quests (service, quest) VALUES "
+    for service in p.npc_receive_quest_service:
+        values = [x for x in service[2:] if x != 0]
+        if len(values) > 0:
+            c.execute(skill_query + ', '.join(['(%s, %%s)' % service.id] * len(values)), values)
+    
+    c.close()
+
+def store_service_start_quests(db, p):
+    c = db.cursor()
+
+    skill_query = "INSERT INTO npc_service_start_quest_quests (service, quest) VALUES "
+    for service in p.npc_activate_quest_service:
+        values = [x for x in service[2:] if x != 0]
+        if len(values) > 0:
+            c.execute(skill_query + ', '.join(['(%s, %%s)' % service.id] * len(values)), values)
+    
+    c.close()
+
+
 if __name__ == '__main__':
     main()
