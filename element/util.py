@@ -92,3 +92,40 @@ def SpawnLocations(filename):
 			except (ValueError):
 				pass
 		return spawns
+
+def coords(t):
+    return ((t[0] + 4000) / 10.0, (t[2] + 5500) / 10.0, t[1] / 10.0)
+
+def Regions(filename):
+    with open(filename) as f:
+        things = []
+        lines = parse_token_file(f.read()[2:].decode('utf_16_le'))
+        i = 2
+        used_ids = set() # Because we can have duplicates o.o
+        q = collections.namedtuple('RegionParams', ('id', 'coord_count', 'waypoint_count', '?','?', 'music_count', '?', '?', '?', '?'), rename=True)
+        p = collections.namedtuple('Point', ('x','y','z'))
+        r = collections.namedtuple('Region', ('id', 'name', 'home_point', 'vertices', 'waypoints'))
+        while i < len(lines):
+            name = lines[i][0]
+            params = q._make(int(x) for x in lines[i+1])
+            home_point = p(*coords([float(x.rstrip(',')) for x in lines[i+2]]))
+            waypoints = {}
+            points = []
+            i += 3
+            for j in xrange(int(params.coord_count)):
+                points.append(p(*coords([float(x) for x in lines[i]])))
+                i += 1
+            if points[0] != points[-1]:
+                points.append(points[0])
+            for j in xrange(int(params.waypoint_count)):
+                waypoints[lines[i][0]] = p(*coords([float(x) for x in lines[i][1:]]))
+                i += 1
+            i += 2 + params.music_count
+            if params.id not in used_ids:
+                waypoints = {}
+                used_ids.add(params.id)
+            things.append(r(params.id, name, home_point, points, waypoints))
+
+        return things
+
+            

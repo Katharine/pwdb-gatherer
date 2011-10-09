@@ -957,6 +957,27 @@ def store_service_start_quests(db, p):
     
     c.close()
 
+def store_precincts(db):
+    precincts = element.util.Regions('data/precinct.clt')
+    c = db.cursor()
+    for precinct in precincts:
+        c.execute("INSERT INTO precincts (id, map, name, region, home) VALUES (%s, %s, %s, GeomFromText(%s), GeomFromText(%s))", (
+            precinct.id,
+            'wor',
+            precinct.name,
+            'POLYGON((%s))' % ','.join('%s %s' % (p.x, p.y) for p in precinct.vertices),
+            'POINT(%s %s)' % (precinct.home_point.x, precinct.home_point.y)
+        ))
+        wquery = "INSERT INTO waypoints (precinct, name, position) VALUES %s"
+        values = []
+        placeholders = []
+        for waypoint in precinct.waypoints:
+            point = precinct.waypoints[waypoint]
+            values.extend((precinct.id, waypoint, 'POINT(%s %s)' % (point.x, point.y)))
+            placeholders.append("(%s, %s, GeomFromText(%s))")
+        if len(values) > 0:
+            c.execute(wquery % ', '.join(placeholders), values)
+    c.close()
 
 if __name__ == '__main__':
     main()
